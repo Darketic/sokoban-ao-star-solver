@@ -1,0 +1,87 @@
+import time
+from engine import SokobanState
+from ao_star import ao_star_search
+
+def parse_level(level_str):
+    walls, boxes, targets = set(), set(), set()
+    player = None
+    
+    lines = level_str.strip().split('\n')
+    for y, line in enumerate(lines):
+        for x, char in enumerate(line):
+            if char == '#':
+                walls.add((x, y))
+            elif char == '@':
+                player = (x, y)
+            elif char == '$':
+                boxes.add((x, y))
+            elif char == '.':
+                targets.add((x, y))
+            elif char == '*':
+                boxes.add((x, y))
+                targets.add((x, y))
+            elif char == '+':
+                player = (x, y)
+                targets.add((x, y))
+                
+    return SokobanState(player, boxes, targets, walls), len(lines[0]), len(lines)
+
+def draw_board(state, width, height):
+    print("\033[H\033[J", end="") # Clear terminal
+    for y in range(height):
+        row = ""
+        for x in range(width):
+            pos = (x, y)
+            if pos in state.walls:
+                row += "#"
+            elif pos == state.player and pos in state.targets:
+                row += "+"
+            elif pos == state.player:
+                row += "@"
+            elif pos in state.boxes and pos in state.targets:
+                row += "*"
+            elif pos in state.boxes:
+                row += "$"
+            elif pos in state.targets:
+                row += "."
+            else:
+                row += " "
+        print(row)
+    print("\n")
+
+if __name__ == "__main__":
+    # A solvable level: 1 box ($), 1 target (.), 1 player (@)
+    level = """
+#########
+# . #####
+#  #### #
+#  #  $ #
+#  @    #
+#########
+"""
+    initial_state, width, height = parse_level(level)
+    
+    print("Starting AO* Sub-Goal Decomposition Search...")
+    start_time = time.time()
+    solution = ao_star_search(initial_state)
+    
+    if solution:
+        print(f"Solved in {time.time() - start_time:.4f} seconds!")
+        print(f"Solution Path: {''.join(solution)}\n")
+        time.sleep(2)
+        
+        # Playback logic
+        current_state = initial_state
+        from engine import get_successors
+        for step in solution:
+            draw_board(current_state, width, height)
+            print(f"Action: {step}")
+            time.sleep(0.5)
+            for action, next_state in get_successors(current_state):
+                if action == step:
+                    current_state = next_state
+                    break
+        draw_board(current_state, width, height)
+        print("Goal Reached!")
+    else:
+        print("No solution found. Check level design or deadlock logic.")
